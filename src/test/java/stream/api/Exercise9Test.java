@@ -42,7 +42,13 @@ public class Exercise9Test extends ClassicOnlineStore {
          * The collector will be used by serial stream.
          */
         Supplier<Object> supplier = () -> new StringJoiner(",");
-        Collector<String, ?, String> toCsv = null;
+        Collector<String, ?, String> toCsv =
+                Collector.of(
+                        () -> new StringJoiner(","),
+                        StringJoiner::add,
+                        StringJoiner::merge,
+                        StringJoiner::toString
+                );
         String nameAsCsv = customerList.stream().map(Customer::getName).collect(toCsv);
         assertThat(nameAsCsv, is("Joe,Steven,Patrick,Diana,Chris,Kathy,Alice,Andrew,Martin,Amy"));
     }
@@ -60,7 +66,30 @@ public class Exercise9Test extends ClassicOnlineStore {
 
 
 
-        Collector<Customer, ?, Map<String, Set<String>>> toItemAsKey = null;
+        Collector<Customer, ?, Map<String, Set<String>>> toItemAsKey =
+                Collector.of(
+                        HashMap::new,
+
+                        (map, customer) -> {
+                            customer.getWantToBuy().forEach(item -> {
+                                map.computeIfAbsent(
+                                        item.getName(),
+                                        key -> new HashSet<>()
+                                ).add(customer.getName());
+                            });
+                        },
+
+                        (map1, map2) -> {
+                            map2.forEach((itemName, customers) -> {
+                                map1.computeIfAbsent(
+                                        itemName,
+                                        key -> new HashSet<>()
+                                ).addAll(customers);
+                            });
+
+                            return map1;
+                        }
+                );
         Map<String, Set<String>> itemMap =
                 customerList.stream().parallel().collect(toItemAsKey);
 

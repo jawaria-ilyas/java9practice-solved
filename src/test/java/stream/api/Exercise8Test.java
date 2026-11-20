@@ -34,8 +34,18 @@ public class Exercise8Test extends ClassicOnlineStore {
         /**
          * Create a set of item names that are in {@link Customer.wantToBuy} but not on sale in any shop.
          */
-        List<String> itemListOnSale = null;
-        Set<String> itemSetNotOnSale = null;
+        List<String> itemListOnSale =
+                shopStream
+                        .flatMap(shop -> shop.getItemList().stream())
+                        .map(Item::getName)
+                        .collect(Collectors.toList());
+
+        Set<String> itemSetNotOnSale =
+                customerStream
+                        .flatMap(customer -> customer.getWantToBuy().stream())
+                        .map(Item::getName)
+                        .filter(name -> !itemListOnSale.contains(name))
+                        .collect(Collectors.toSet());
 
         assertThat(itemSetNotOnSale, hasSize(3));
         assertThat(itemSetNotOnSale, hasItems("bag", "pants", "coat"));
@@ -53,7 +63,28 @@ public class Exercise8Test extends ClassicOnlineStore {
          * Items that are not on sale can be counted as 0 money cost.
          * If there is several same items with different prices, customer can choose the cheapest one.
          */
-        List<String> customerNameList = null;
+        List<Item> itemsOnSale = shopStream
+                .flatMap(shop -> shop.getItemList().stream())
+                .collect(Collectors.toList());
+
+        List<String> customerNameList = customerStream
+                .filter(customer -> {
+
+                    long totalCost = customer.getWantToBuy().stream()
+                            .mapToLong(wantedItem ->
+                                    itemsOnSale.stream()
+                                            .filter(item -> item.getName()
+                                                    .equals(wantedItem.getName()))
+                                            .mapToLong(Item::getPrice)
+                                            .min()
+                                            .orElse(0L)
+                            )
+                            .sum();
+
+                    return customer.getBudget() >= totalCost;
+                })
+                .map(Customer::getName)
+                .collect(Collectors.toList());
 
         assertThat(customerNameList, hasSize(7));
         assertThat(customerNameList, hasItems("Joe", "Patrick", "Chris", "Kathy", "Alice", "Andrew", "Amy"));
